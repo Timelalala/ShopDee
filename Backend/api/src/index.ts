@@ -7,7 +7,7 @@ dotenv.config();
 
 //2.configuration
 const app = Express();
-const PORT = 4000;
+const PORT = process.env.PORT||4000;
 
 app.use(Express.json());
 app.use(Express.urlencoded({extended:true}));
@@ -39,27 +39,43 @@ function query(sql: string, params: any[] = []): Promise<any> {
     });
 }
 
+app.post('/plus',(req,res)=>{
+    let{x,y}= req.body;
+    x = parseInt(x);
+    y = parseInt(y);
+    let z= x+y;
+    res.send({'status':true,'result':z});
+});
+
+app.post('/circleArea',(req,res)=>{
+    let {radius} = req.body;
+    radius = parseFloat(radius);
+    let area = Math.PI * radius * radius;
+    res.send({'status':true,'result':area});
+});
+
 
 app.get('/',
         (req,res)=>{
             res.send('Hello word!!');
 });
+
+
 // CREATE - เพิ่มลูกค้าใหม่
 
-app.post('/api/customer', 
-    async (req, res) => {
+app.post('/api/customer', async (req, res) => {
 
  try {
 
-        const { username, password, firstName, lastName } = req.body;
+  const { username, password, firstName, lastName } = req.body;
 
-        const sql = `
+  const sql = `
 
-        INSERT INTO customer (username, password, firstName, lastName)
+   INSERT INTO customer (username, password, firstName, lastName)
 
-        VALUES (?, ?, ?, ?)
+   VALUES (?, ?, ?, ?)
 
-        `;
+  `;
 
   const result = await query(sql, [username, password, firstName, lastName]);
 
@@ -84,6 +100,153 @@ app.post('/api/customer',
  }
 
 });
+
+// READ - ดึงลูกค้าทั้งหมด
+
+app.get('/api/customer', async (req, res) => {
+
+  try {
+
+    const sql = `SELECT * FROM customer`;
+
+    const customers = await query(sql);
+
+    res.json({
+
+      status: true,
+
+      message: 'Customers fetched successfully',
+
+      data: customers
+
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+
+      status: false,
+
+      message: 'Failed to fetch customers'
+
+    });
+
+  }
+
+});
+
+// READ (by ID) - ดึงลูกค้ารายเดียว
+app.get('/api/customer/:custID', async (req, res) => {
+
+  try {
+
+    const { custID } = req.params;
+
+    const sql = `SELECT * FROM customer WHERE custID = ?`;
+
+    const results = await query(sql, [custID]);
+
+    if (results.length === 0) {
+
+      res.status(404).json({
+
+        status: false,
+
+        message: 'Customer not found'
+
+      });
+
+    } else {
+
+      res.json({
+
+        status: true,
+
+        message: 'Customer fetched successfully',
+
+        data: results[0]
+
+      });
+
+    }
+
+  } catch (err) {
+
+    res.status(500).json({
+
+      status: false,
+
+      message: 'Failed to fetch customer'
+
+    });
+
+  }
+
+});
+23
+
+23
+
+// UPDATE - แก้ไขลูกค้า
+
+app.put('/api/customer/:custID', async (req, res) => {
+
+  try {
+
+    const { custID } = req.params;
+
+    const { username, password, firstName, lastName } = req.body;
+
+    const sql = `
+
+      UPDATE customer
+
+      SET username = ?, password = ?, firstName = ?, lastName = ?
+
+      WHERE custID = ?
+
+    `;
+
+    const result = await query(sql, [username, password, firstName, lastName, custID]);
+
+    if (result.affectedRows === 0) {
+
+      res.status(404).json({
+
+        status: false,
+
+        message: 'Customer not found'
+
+      });
+
+    } else {
+
+      res.json({
+
+        status: true,
+
+        message: 'Customer updated successfully'
+
+      });
+
+    }
+
+  } catch (err) {
+
+    res.status(500).json({
+
+      status: false,
+
+      message: 'Failed to update customer'
+
+    });
+
+  }
+
+});
+
+
+
 
 //start server
 app.listen(PORT,
