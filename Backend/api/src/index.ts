@@ -3,9 +3,16 @@ import  Express  from "express";
 import cors from 'cors';
 import mysql from 'mysql2';
 import dotenv from 'dotenv';
+
+import { Request, Response, NextFunction } from 'express';
+import { body, validationResult } from 'express-validator';
+import bcrypt from 'bcryptjs';
+
 dotenv.config();
 
+
 //2.configuration
+
 const app = Express();
 const PORT = process.env.PORT||4000;
 
@@ -32,10 +39,10 @@ db.connect();
 //3.Define API Endpoints
 function query(sql: string, params: any[] = []): Promise<any> {
     return new Promise((resolve, reject) => {
-        db.query(sql, params, (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-        });
+  db.query(sql, params, (err, results) => {
+if (err) reject(err);
+else resolve(results);
+  });
     });
 }
 
@@ -56,8 +63,8 @@ app.post('/circleArea',(req,res)=>{
 
 
 app.get('/',
-        (req,res)=>{
-            res.send('Hello word!!');
+  (req,res)=>{
+res.send('Hello word!!');
 });
 
 
@@ -113,11 +120,11 @@ app.get('/api/customer', async (req, res) => {
 
     res.json({
 
-      status: true,
+status: true,
 
-      message: 'Customers fetched successfully',
+message: 'Customers fetched successfully',
 
-      data: customers
+data: customers
 
     });
 
@@ -125,9 +132,9 @@ app.get('/api/customer', async (req, res) => {
 
     res.status(500).json({
 
-      status: false,
+status: false,
 
-      message: 'Failed to fetch customers'
+message: 'Failed to fetch customers'
 
     });
 
@@ -148,25 +155,25 @@ app.get('/api/customer/:custID', async (req, res) => {
 
     if (results.length === 0) {
 
-      res.status(404).json({
+res.status(404).json({
 
-        status: false,
+  status: false,
 
-        message: 'Customer not found'
+  message: 'Customer not found'
 
-      });
+});
 
     } else {
 
-      res.json({
+res.json({
 
-        status: true,
+  status: true,
 
-        message: 'Customer fetched successfully',
+  message: 'Customer fetched successfully',
 
-        data: results[0]
+  data: results[0]
 
-      });
+});
 
     }
 
@@ -174,9 +181,9 @@ app.get('/api/customer/:custID', async (req, res) => {
 
     res.status(500).json({
 
-      status: false,
+status: false,
 
-      message: 'Failed to fetch customer'
+message: 'Failed to fetch customer'
 
     });
 
@@ -199,11 +206,11 @@ app.put('/api/customer/:custID', async (req, res) => {
 
     const sql = `
 
-      UPDATE customer
+UPDATE customer
 
-      SET username = ?, password = ?, firstName = ?, lastName = ?
+SET username = ?, password = ?, firstName = ?, lastName = ?
 
-      WHERE custID = ?
+WHERE custID = ?
 
     `;
 
@@ -211,23 +218,23 @@ app.put('/api/customer/:custID', async (req, res) => {
 
     if (result.affectedRows === 0) {
 
-      res.status(404).json({
+res.status(404).json({
 
-        status: false,
+  status: false,
 
-        message: 'Customer not found'
+  message: 'Customer not found'
 
-      });
+});
 
     } else {
 
-      res.json({
+res.json({
 
-        status: true,
+  status: true,
 
-        message: 'Customer updated successfully'
+  message: 'Customer updated successfully'
 
-      });
+});
 
     }
 
@@ -235,13 +242,116 @@ app.put('/api/customer/:custID', async (req, res) => {
 
     res.status(500).json({
 
-      status: false,
+status: false,
 
-      message: 'Failed to update customer'
+message: 'Failed to update customer'
 
     });
 
   }
+
+});
+// DELETE - ลบลูกค้า
+
+app.delete('/api/customer/:custID', async (req, res) => {
+
+  try {
+
+    const { custID } = req.params;
+
+    const sql = `DELETE FROM customer WHERE custID = ?`;
+
+    const result = await query(sql, [custID]);
+
+    if (result.affectedRows === 0) {
+
+res.status(404).json({
+
+  status: false,
+
+  message: 'Customer not found'
+
+});
+
+    } else {
+
+res.json({
+
+  status: true,
+
+  message: 'Customer deleted successfully'
+
+});
+
+    }
+
+  } catch (err) {
+
+    res.status(500).json({
+
+status: false,
+
+message: 'Failed to delete customer'
+
+    });
+
+  }
+
+});
+
+// Register
+
+app.post('/api/register', [
+
+ body('username').isString().notEmpty().withMessage('Username is required'),
+
+ body('password').isLength({ min: 4 }).withMessage('Password must be at least 4 characters'),
+
+ body('firstName').isString().notEmpty().withMessage('First name is required'),
+
+ body('lastName').isString().notEmpty().withMessage('Last name is required')
+
+], async (req: Request, res: Response, next: NextFunction) => {
+
+ const errors = validationResult(req);
+
+ if (!errors.isEmpty()) {
+
+  return res.status(400).send({ message: 'Validation errors', errors: errors.array(), status: false });
+
+ }
+
+
+ const { username, password, firstName, lastName } = req.body;
+
+ try {
+
+  const existingUser = await query("SELECT * FROM customer WHERE username=?", [username]);
+
+  if (existingUser.length > 0) {
+
+   return res.status(409).send({ message: 'Username already exists', status: false });
+
+  }
+
+
+  const salt = await bcrypt.genSalt(10);
+
+  const password_hash = await bcrypt.hash(password, salt);
+
+
+  await query('INSERT INTO customer (username, password, firstName, lastName) VALUES (?, ?, ?, ?)',
+
+   [username, password_hash, firstName, lastName]);
+
+
+  res.send({ message: 'Registration successful', status: true });
+
+ } catch (err) {
+
+  next(err);
+
+ }
 
 });
 
@@ -251,5 +361,5 @@ app.put('/api/customer/:custID', async (req, res) => {
 //start server
 app.listen(PORT,
     ()=> {
-        console.log(`server is runnning at http://localhost:${PORT}`);
+  console.log(`server is runnning at http://localhost:${PORT}`);
     });
