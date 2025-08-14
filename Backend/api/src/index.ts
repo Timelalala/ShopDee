@@ -3,6 +3,7 @@ import  Express  from "express";
 import cors from 'cors';
 import mysql from 'mysql2';
 import dotenv from 'dotenv';
+import path from 'path';
 
 import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
@@ -103,6 +104,11 @@ function validateToken(req: Request, res: Response, next: NextFunction) {
  }
 
 }
+//Image Profile API
+app.get('/api/customer/image/:filename', (req: Request, res: Response) => {
+ const filepath = path.join(__dirname, '../assets', 'customer', req.params.filename);
+ res.sendFile(filepath);
+});
 
 
 
